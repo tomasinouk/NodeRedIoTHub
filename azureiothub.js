@@ -47,6 +47,28 @@ module.exports = function (RED) {
         });
     };
 
+    var sendBatchData = function (node, data) {
+        node.log('Sending Message to Azure IoT Hub :\n   Payload: ' + JSON.stringify(data));
+        // Create a message and send it to the IoT Hub
+        // sending a batch of messages
+       
+        var messages = []
+        data.forEach(function (value) {
+            messages.push(new Message(JSON.stringify(value)));
+          });
+
+        client.sendEventBatch(messages, function (err, res) {
+            if (err) {
+                node.error('Error while trying to send message:' + err.toString());
+                setStatus(node, statusEnum.error);
+            } else {
+                node.log('Batch Messages sent');
+                node.send({payload: "Batch Messages sent"});
+                setStatus(node, statusEnum.sent);
+            }
+        });
+    };
+
     var sendMessageToIoTHub = function (node, message, reconnect) {
         if (!client || reconnect) {
             node.log('Connection to IoT Hub not established or configuration changed. Reconnecting.');
@@ -62,7 +84,15 @@ module.exports = function (RED) {
             // Connect the IoT Hub
             connectToIoTHub(node, message);
         } else {
-            sendData(node, message);
+            // Check if we are sending single event or batch events
+            if(Array.isArray(message)) {
+                // sending an array of objects/events   
+              sendBatchData(node, message);
+          } else if (typeof(message) === 'object') {  
+            //   sending single event
+              sendData(node, message);
+          }
+            
         }
     };
 
