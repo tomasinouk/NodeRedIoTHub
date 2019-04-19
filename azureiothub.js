@@ -48,7 +48,8 @@ module.exports = function (RED) {
     };
 
     var sendBatchData = function (node, data) {
-        node.log('Sending Message to Azure IoT Hub :\n   Payload: ' + JSON.stringify(data));
+        // node.log('Sending Message to Azure IoT Hub :\n   Payload: ' + JSON.stringify(data));
+        node.log('Sending Message to Azure IoT Hub');
         // Create a message and send it to the IoT Hub
         // sending a batch of messages
        
@@ -60,10 +61,11 @@ module.exports = function (RED) {
         client.sendEventBatch(messages, function (err, res) {
             if (err) {
                 node.error('Error while trying to send message:' + err.toString());
+                node.send({payload: 'Error while trying to send message:' + err.toString(), status: false});
                 setStatus(node, statusEnum.error);
             } else {
                 node.log('Batch Messages sent');
-                node.send({payload: "Batch Messages sent"});
+                node.send({payload: "Batch Messages sent", status: true});
                 setStatus(node, statusEnum.sent);
             }
         });
@@ -116,7 +118,15 @@ module.exports = function (RED) {
                 if (pendingMessage) {
                     node.log('Message is pending. Sending it to Azure IoT Hub.');
                     // Send the pending message
+                                // Check if we are sending single event or batch events
+                    if(Array.isArray(pendingMessage)) {
+                        // sending an array of objects/events   
+                    sendBatchData(node, pendingMessage);
+                } else if (typeof(pendingMessage) === 'object') {  
+                    //   sending single event
                     sendData(node, pendingMessage);
+                }
+                    // sendData(node, pendingMessage);
                 }
                 client.on('message', function (msg) {
                     // We received a message
@@ -130,7 +140,7 @@ module.exports = function (RED) {
                 });
 
                 client.on('error', function (err) {
-                    node.error(err.message);
+                    node.error("Error in client.." + err.message);
 
                 });
 
